@@ -147,19 +147,28 @@ class BrainStatsUI:
         self.update_study_list()
 
     def update_study_list(self):
-        filter_str = self.filter_var.get().lower()
-        if filter_str:
-            filtered = [s for s in self._all_studies if filter_str in s.lower()]
-        else:
-            filtered = list(self._all_studies)
-        current_study = self.study_var.get()
-        self.study_cb['values'] = filtered
-        # Save cursor position
+        filter_text = self.filter_var.get().lower()
         cursor_pos = self.filter_entry.index(tk.INSERT)
-        # Only update selection if current study is not in filtered
+        
+        if filter_text:
+            filtered = [s for s in self._all_studies if filter_text in s.lower()]
+        else:
+            filtered = self._all_studies
+            
+        self.study_cb['values'] = filtered
+        
+        # Try to maintain current selection if it's still in the filtered list
+        current_study = self.study_var.get()
         if filtered:
             if current_study not in filtered:
-                self.study_cb.current(0)
+                # Check if we have a saved study to restore
+                if hasattr(self, 'last_settings') and self.last_settings['last_study'] in filtered:
+                    self.study_var.set(self.last_settings['last_study'])
+                    # Also restore type if possible
+                    if self.last_settings['last_type'] in ['scalar', 'image']:
+                        self.type_var.set(self.last_settings['last_type'])
+                else:
+                    self.study_cb.current(0)
                 self.on_study_selected()
         else:
             self.study_var.set('')
@@ -189,9 +198,26 @@ class BrainStatsUI:
             tags = [row[0] for row in self.con.execute("SELECT DISTINCT tag FROM images WHERE study=?", [study]).fetchall()]
         tags = sorted(tags)
         self.tag_cb['values'] = tags
+        
         if tags:
-            self.tag_cb.current(0)
+            # Try to restore saved tag if available
+            if hasattr(self, 'last_settings') and self.last_settings['last_tag'] in tags:
+                self.tag_var.set(self.last_settings['last_tag'])
+            else:
+                self.tag_cb.current(0)
             self.on_tag_selected()
+        else:
+            # No tags available for this study/type
+            self.tag_var.set('')
+            if value_type == 'scalar':
+                # Clear any existing plot
+                if hasattr(self, 'scalar_canvas'):
+                    self.scalar_canvas.get_tk_widget().pack_forget()
+            else:
+                # Clear any existing image
+                self.images = []
+                self.img_idx = 0
+                self.hide_image_widgets()
 
     def on_tag_selected(self, event=None):
         if self.type_var.get() == 'scalar':
@@ -247,7 +273,7 @@ class BrainStatsUI:
             with open(self.settings_file, 'r') as f:
                 settings = json.load(f)
                 
-            # Apply loaded settings
+            # Apply loaded settings for UI controls
             if 'log_scale' in settings:
                 self.log_scale_var.set(settings['log_scale'])
             if 'show_dots' in settings:
@@ -256,9 +282,9 @@ class BrainStatsUI:
                 self.hgrid_var.set(settings['h_grid'])
             if 'v_grid' in settings:
                 self.vgrid_var.set(settings['v_grid'])
-            if 'grid_color' in settings:
+            if 'grid_color' in settings and settings['grid_color'] in self.grid_color_cb['values']:
                 self.grid_color_var.set(settings['grid_color'])
-            if 'line_color' in settings:
+            if 'line_color' in settings and settings['line_color'] in self.line_color_cb['values']:
                 self.line_color_var.set(settings['line_color'])
                 
             # We'll handle study/type/tag selection after loading studies
