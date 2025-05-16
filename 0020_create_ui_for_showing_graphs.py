@@ -63,6 +63,11 @@ class BrainStatsUI:
         self.log_scale_var = tk.BooleanVar(value=False)
         self.log_scale_cb = ttk.Checkbutton(controls_frame, text="Log Y", variable=self.log_scale_var, command=self.on_log_scale_toggle)
         self.log_scale_cb.grid(row=2, column=5, sticky=tk.W, ipady=0, pady=0)
+        
+        # Show dots checkbox
+        self.show_dots_var = tk.BooleanVar(value=True)
+        self.show_dots_cb = ttk.Checkbutton(controls_frame, text="Show Dots", variable=self.show_dots_var, command=self.on_show_dots_toggle)
+        self.show_dots_cb.grid(row=2, column=6, sticky=tk.W, ipady=0, pady=0)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -165,6 +170,10 @@ class BrainStatsUI:
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
 
+    def on_show_dots_toggle(self):
+        if self.type_var.get() == 'scalar':
+            self.show_scalar_plot()
+
     def show_scalar_plot(self):
         self.hide_image_widgets()
         # Remove previous matplotlib canvas if present
@@ -181,7 +190,10 @@ class BrainStatsUI:
             return
         steps, values = zip(*rows)
         fig, ax = plt.subplots(figsize=(6,4))
-        ax.plot(steps, values, marker='o')
+        if self.show_dots_var.get():
+            ax.plot(steps, values, marker='o')
+        else:
+            ax.plot(steps, values)
         ax.set_title(f"{tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
