@@ -14,45 +14,54 @@ class BrainStatsUI:
     def __init__(self, root):
         self.root = root
         self.root.title('Brain Stats Viewer')
+        try:
+            self.root.iconbitmap('assets/CLOUDCELL-32x32.ico')
+        except Exception as e:
+            pass  # Ignore icon error if running on Linux/Wayland or missing icon
         self.con = duckdb.connect(DB_PATH, read_only=True)
         self.setup_widgets()
         self.load_studies()
     
     def setup_widgets(self):
-        frame = ttk.Frame(self.root)
-        frame.pack(fill=tk.BOTH, expand=True)
+        # Controls pane (fixed height)
+        controls_frame = ttk.Frame(self.root, height=80)
+        controls_frame.pack(fill=tk.X, expand=False)
+        controls_frame.pack_propagate(False)
         # Filter for studies (row 0)
-        ttk.Label(frame, text="Filter:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(controls_frame, text="Filter:").grid(row=0, column=0, sticky=tk.W)
         self.filter_var = tk.StringVar()
-        self.filter_entry = ttk.Entry(frame, textvariable=self.filter_var, width=20)
+        self.filter_entry = ttk.Entry(controls_frame, textvariable=self.filter_var, width=20)
         self.filter_entry.grid(row=0, column=1, sticky=tk.W)
         self.filter_var.trace_add('write', self.on_filter_change)
 
         # Study selector (row 1)
-        ttk.Label(frame, text="Study:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(controls_frame, text="Study:").grid(row=1, column=0, sticky=tk.W)
         self.study_var = tk.StringVar()
-        self.study_cb = ttk.Combobox(frame, textvariable=self.study_var, state='readonly', width=40)
+        self.study_cb = ttk.Combobox(controls_frame, textvariable=self.study_var, state='readonly', width=40)
         self.study_cb.grid(row=1, column=1, columnspan=5, sticky=tk.W+tk.E)
         self.study_cb.bind('<<ComboboxSelected>>', self.on_study_selected)
 
         # Type and Tag selectors (row 2)
-        ttk.Label(frame, text="Type:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(controls_frame, text="Type:").grid(row=2, column=0, sticky=tk.W)
         self.type_var = tk.StringVar(value='scalar')
-        self.type_cb = ttk.Combobox(frame, textvariable=self.type_var, state='readonly', values=['scalar', 'image'])
+        self.type_cb = ttk.Combobox(controls_frame, textvariable=self.type_var, state='readonly', values=['scalar', 'image'])
         self.type_cb.grid(row=2, column=1, sticky=tk.W)
         self.type_cb.bind('<<ComboboxSelected>>', self.on_type_selected)
 
-        ttk.Label(frame, text="Tag:").grid(row=2, column=2, sticky=tk.W)
+        ttk.Label(controls_frame, text="Tag:").grid(row=2, column=2, sticky=tk.W)
         self.tag_var = tk.StringVar()
-        self.tag_cb = ttk.Combobox(frame, textvariable=self.tag_var, state='readonly')
-        self.tag_cb.grid(row=2, column=3, columnspan=3, sticky=tk.W+tk.E)
+        self.tag_cb = ttk.Combobox(controls_frame, textvariable=self.tag_var, state='readonly', width=40)
+        self.tag_cb.grid(row=2, column=3, columnspan=2, sticky=tk.W+tk.E)
         self.tag_cb.bind('<<ComboboxSelected>>', self.on_tag_selected)
 
-        # For scalars: plot area
-        self.plot_frame = ttk.Frame(frame)
-        self.plot_frame.grid(row=3, column=0, columnspan=6, sticky='nsew')
-        frame.rowconfigure(1, weight=1)
-        frame.columnconfigure(5, weight=1)
+        # Log scale checkbox (row 2)
+        self.log_scale_var = tk.BooleanVar(value=False)
+        self.log_scale_cb = ttk.Checkbutton(controls_frame, text="Log Y", variable=self.log_scale_var, command=self.on_log_scale_toggle)
+        self.log_scale_cb.grid(row=2, column=5, sticky=tk.W)
+
+        # Plot area (expands)
+        self.plot_frame = ttk.Frame(self.root)
+        self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
         # For images: image area
         self.image_label = ttk.Label(self.plot_frame)
@@ -82,13 +91,23 @@ class BrainStatsUI:
             filtered = [s for s in self._all_studies if filter_str in s.lower()]
         else:
             filtered = list(self._all_studies)
+        current_study = self.study_var.get()
         self.study_cb['values'] = filtered
+        # Save cursor position
+        cursor_pos = self.filter_entry.index(tk.INSERT)
+        # Only update selection if current study is not in filtered
         if filtered:
-            self.study_cb.current(0)
-            self.on_study_selected()
+            if current_study not in filtered:
+                self.study_cb.current(0)
+                self.on_study_selected()
         else:
             self.study_var.set('')
             self.tag_cb['values'] = []
+        # Restore focus and cursor position after update
+        def refocus():
+            self.filter_entry.focus_set()
+            self.filter_entry.icursor(cursor_pos)
+        self.root.after(1, refocus)
 
     def on_study_selected(self, event=None):
         study = self.study_var.get()
@@ -97,6 +116,8 @@ class BrainStatsUI:
     def on_type_selected(self, event=None):
         study = self.study_var.get()
         self.load_tags(study, self.type_var.get())
+        if self.type_var.get() == 'scalar':
+            self.show_scalar_plot()
 
     def load_tags(self, study, value_type):
         if not study:
@@ -116,6 +137,10 @@ class BrainStatsUI:
         else:
             self.load_images()
             self.show_image()
+
+    def on_log_scale_toggle(self):
+        if self.type_var.get() == 'scalar':
+            self.show_scalar_plot()
 
     def show_scalar_plot(self):
         self.hide_image_widgets()
@@ -137,6 +162,8 @@ class BrainStatsUI:
         ax.set_title(f"{tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
+        if getattr(self, 'log_scale_var', None) and self.log_scale_var.get():
+            ax.set_yscale('log')
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
