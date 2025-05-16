@@ -228,7 +228,8 @@ class BrainStatsUI:
         step, wall_time, img_format, img_data = self.images[self.img_idx]
         try:
             img = Image.open(io.BytesIO(img_data))
-            img.thumbnail((500, 500))
+            # Use a much larger size to effectively fill the available space
+            img.thumbnail((1500, 1500))
             img_tk = ImageTk.PhotoImage(img)
             self.image_label.config(image=img_tk, text="")
             self.image_label.image = img_tk
