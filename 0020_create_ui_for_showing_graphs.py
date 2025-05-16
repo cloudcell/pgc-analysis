@@ -87,6 +87,14 @@ class BrainStatsUI:
                                       values=["gray", "black", "blue", "green", "red", "orange"])
         self.grid_color_cb.grid(row=3, column=1, sticky=tk.W, ipady=0, pady=0)
         self.grid_color_cb.bind('<<ComboboxSelected>>', self.on_grid_toggle)
+        
+        # Line color selection (row 3)
+        ttk.Label(controls_frame, text="Line Color:").grid(row=3, column=2, sticky=tk.W)
+        self.line_color_var = tk.StringVar(value="blue")
+        self.line_color_cb = ttk.Combobox(controls_frame, textvariable=self.line_color_var, state='readonly', 
+                                      values=["blue", "black", "red", "green", "orange", "purple"])
+        self.line_color_cb.grid(row=3, column=3, sticky=tk.W, ipady=0, pady=0)
+        self.line_color_cb.bind('<<ComboboxSelected>>', self.on_show_dots_toggle)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -213,10 +221,11 @@ class BrainStatsUI:
             return
         steps, values = zip(*rows)
         fig, ax = plt.subplots(figsize=(6,4))
+        line_color = self.line_color_var.get()
         if self.show_dots_var.get():
-            ax.plot(steps, values, marker='o')
+            ax.plot(steps, values, marker='o', color=line_color)
         else:
-            ax.plot(steps, values)
+            ax.plot(steps, values, color=line_color)
         ax.set_title(f"{tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
