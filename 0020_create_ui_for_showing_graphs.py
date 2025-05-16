@@ -68,6 +68,16 @@ class BrainStatsUI:
         self.show_dots_var = tk.BooleanVar(value=True)
         self.show_dots_cb = ttk.Checkbutton(controls_frame, text="Show Dots", variable=self.show_dots_var, command=self.on_show_dots_toggle)
         self.show_dots_cb.grid(row=2, column=6, sticky=tk.W, ipady=0, pady=0)
+        
+        # Horizontal grid lines checkbox
+        self.hgrid_var = tk.BooleanVar(value=False)
+        self.hgrid_cb = ttk.Checkbutton(controls_frame, text="H-Grid", variable=self.hgrid_var, command=self.on_grid_toggle)
+        self.hgrid_cb.grid(row=2, column=7, sticky=tk.W, ipady=0, pady=0)
+        
+        # Vertical grid lines checkbox
+        self.vgrid_var = tk.BooleanVar(value=False)
+        self.vgrid_cb = ttk.Checkbutton(controls_frame, text="V-Grid", variable=self.vgrid_var, command=self.on_grid_toggle)
+        self.vgrid_cb.grid(row=2, column=8, sticky=tk.W, ipady=0, pady=0)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -173,6 +183,10 @@ class BrainStatsUI:
     def on_show_dots_toggle(self):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
+            
+    def on_grid_toggle(self):
+        if self.type_var.get() == 'scalar':
+            self.show_scalar_plot()
 
     def show_scalar_plot(self):
         self.hide_image_widgets()
@@ -199,6 +213,12 @@ class BrainStatsUI:
         ax.set_ylabel("Value")
         if getattr(self, 'log_scale_var', None) and self.log_scale_var.get():
             ax.set_yscale('log')
+        
+        # Apply grid settings
+        if getattr(self, 'hgrid_var', None) and self.hgrid_var.get():
+            ax.grid(axis='y')
+        if getattr(self, 'vgrid_var', None) and self.vgrid_var.get():
+            ax.grid(axis='x')
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
