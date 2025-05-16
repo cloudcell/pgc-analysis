@@ -8,6 +8,8 @@ from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, LogLocator
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import json
+import os
 
 DB_PATH = 'brain_stats.duckdb'
 
@@ -25,8 +27,13 @@ class BrainStatsUI:
                 pass  # Ignore icon error if running on Linux/Wayland or missing icon
         self._icon_img = icon_img if 'icon_img' in locals() else None  # Prevent garbage collection
         self.con = duckdb.connect(DB_PATH, read_only=True)
+        self.settings_file = 'brain_stats_settings.json'
         self.setup_widgets()
+        self.load_settings()
         self.load_studies()
+        
+        # Save settings when closing the app
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
     
     def setup_widgets(self):
         # Controls pane (fixed height)
@@ -196,14 +203,79 @@ class BrainStatsUI:
     def on_log_scale_toggle(self):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
-
+        self.save_settings()
+            
     def on_show_dots_toggle(self):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
+        self.save_settings()
             
     def on_grid_toggle(self):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
+        self.save_settings()
+        
+    def save_settings(self):
+        """Save current settings to a JSON file"""
+        settings = {
+            'log_scale': self.log_scale_var.get(),
+            'show_dots': self.show_dots_var.get(),
+            'h_grid': self.hgrid_var.get(),
+            'v_grid': self.vgrid_var.get(),
+            'grid_color': self.grid_color_var.get(),
+            'line_color': self.line_color_var.get(),
+            # Save the last viewed study and tag if available
+            'last_study': self.study_var.get() if hasattr(self, 'study_var') else '',
+            'last_type': self.type_var.get() if hasattr(self, 'type_var') else '',
+            'last_tag': self.tag_var.get() if hasattr(self, 'tag_var') else ''
+        }
+        
+        try:
+            with open(self.settings_file, 'w') as f:
+                json.dump(settings, f, indent=4)
+            print(f"Settings saved to {self.settings_file}")
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+    
+    def load_settings(self):
+        """Load settings from JSON file if it exists"""
+        if not os.path.exists(self.settings_file):
+            print(f"No settings file found at {self.settings_file}")
+            return
+            
+        try:
+            with open(self.settings_file, 'r') as f:
+                settings = json.load(f)
+                
+            # Apply loaded settings
+            if 'log_scale' in settings:
+                self.log_scale_var.set(settings['log_scale'])
+            if 'show_dots' in settings:
+                self.show_dots_var.set(settings['show_dots'])
+            if 'h_grid' in settings:
+                self.hgrid_var.set(settings['h_grid'])
+            if 'v_grid' in settings:
+                self.vgrid_var.set(settings['v_grid'])
+            if 'grid_color' in settings:
+                self.grid_color_var.set(settings['grid_color'])
+            if 'line_color' in settings:
+                self.line_color_var.set(settings['line_color'])
+                
+            # We'll handle study/type/tag selection after loading studies
+            self.last_settings = {
+                'last_study': settings.get('last_study', ''),
+                'last_type': settings.get('last_type', ''),
+                'last_tag': settings.get('last_tag', '')
+            }
+                
+            print(f"Settings loaded from {self.settings_file}")
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+    
+    def on_close(self):
+        """Save settings when closing the app"""
+        self.save_settings()
+        self.root.destroy()
 
     def show_scalar_plot(self):
         self.hide_image_widgets()
