@@ -71,6 +71,8 @@ class BrainStatsUI:
         # For images: image area
         self.image_label = ttk.Label(self.plot_frame)
         self.image_label.pack()
+        self.sample_id_label = ttk.Label(self.plot_frame, text="")
+        self.sample_id_label.pack()
         self.image_nav_frame = ttk.Frame(self.plot_frame)
         self.image_nav_frame.pack()
         self.prev_btn = ttk.Button(self.image_nav_frame, text='Previous', command=self.prev_image)
@@ -201,7 +203,9 @@ class BrainStatsUI:
             try:
                 self.image_label.config(image='', text="No images found.")
                 self.image_label.image = None
+                self.sample_id_label.config(text="")
                 self.image_label.pack()
+                self.sample_id_label.pack()
                 self.image_nav_frame.pack()
                 self.prev_btn.config(state=tk.DISABLED)
                 self.next_btn.config(state=tk.DISABLED)
@@ -223,6 +227,8 @@ class BrainStatsUI:
             except tk.TclError:
                 pass
         self.image_label.pack()
+        self.sample_id_label.config(text=f"Sample ID: {step}")
+        self.sample_id_label.pack()
         self.image_nav_frame.pack()
         self.prev_btn.config(state=tk.NORMAL if self.img_idx > 0 else tk.DISABLED)
         self.next_btn.config(state=tk.NORMAL if self.img_idx < len(self.images)-1 else tk.DISABLED)
