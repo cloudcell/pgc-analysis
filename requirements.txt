@@ -3,3 +3,4 @@ pyarrow
 pathlib
 tensorboard
 Pillow
+matplotlib
