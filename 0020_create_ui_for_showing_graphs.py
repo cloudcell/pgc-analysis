@@ -211,14 +211,23 @@ class BrainStatsUI:
         ax.set_title(f"{tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
+        # First set scale, which affects grid behavior
         if getattr(self, 'log_scale_var', None) and self.log_scale_var.get():
             ax.set_yscale('log')
+            # For log scale, we want to see grid lines at the major ticks
+            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
+                          which='major', linestyle='-', alpha=0.3)
+            # Add minor grid lines for log scale
+            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
+                          which='minor', linestyle=':', alpha=0.2)
+        else:
+            # Linear scale - use standard grid
+            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
+                         which='major', linestyle='-', alpha=0.3)
         
-        # Apply grid settings
-        if getattr(self, 'hgrid_var', None) and self.hgrid_var.get():
-            ax.grid(axis='y')
-        if getattr(self, 'vgrid_var', None) and self.vgrid_var.get():
-            ax.grid(axis='x')
+        # Vertical grid is always linear
+        ax.xaxis.grid(getattr(self, 'vgrid_var', None) and self.vgrid_var.get(), 
+                     which='major', linestyle='-', alpha=0.3)
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
