@@ -6,6 +6,7 @@ import duckdb
 import io
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator, LogLocator
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 DB_PATH = 'brain_stats.duckdb'
@@ -78,6 +79,14 @@ class BrainStatsUI:
         self.vgrid_var = tk.BooleanVar(value=False)
         self.vgrid_cb = ttk.Checkbutton(controls_frame, text="V-Grid", variable=self.vgrid_var, command=self.on_grid_toggle)
         self.vgrid_cb.grid(row=2, column=8, sticky=tk.W, ipady=0, pady=0)
+        
+        # Grid color selection (row 3)
+        ttk.Label(controls_frame, text="Grid Color:").grid(row=3, column=0, sticky=tk.W)
+        self.grid_color_var = tk.StringVar(value="gray")
+        self.grid_color_cb = ttk.Combobox(controls_frame, textvariable=self.grid_color_var, state='readonly', 
+                                      values=["gray", "black", "blue", "green", "red", "orange"])
+        self.grid_color_cb.grid(row=3, column=1, sticky=tk.W, ipady=0, pady=0)
+        self.grid_color_cb.bind('<<ComboboxSelected>>', self.on_grid_toggle)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -214,20 +223,35 @@ class BrainStatsUI:
         # First set scale, which affects grid behavior
         if getattr(self, 'log_scale_var', None) and self.log_scale_var.get():
             ax.set_yscale('log')
-            # For log scale, we want to see grid lines at the major ticks
-            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
-                          which='major', linestyle='-', alpha=0.3)
-            # Add minor grid lines for log scale
-            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
-                          which='minor', linestyle=':', alpha=0.2)
+            # Also add more ticks for denser grid in log mode
+            ax.yaxis.set_minor_locator(LogLocator(subs=range(2, 10)))
         else:
-            # Linear scale - use standard grid
-            ax.yaxis.grid(getattr(self, 'hgrid_var', None) and self.hgrid_var.get(), 
-                         which='major', linestyle='-', alpha=0.3)
+            # Add more y-axis ticks for denser grid in linear mode
+            ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+            
+        # Add minor x-axis ticks for denser grid
+        ax.xaxis.set_minor_locator(AutoMinorLocator(4))
         
-        # Vertical grid is always linear
-        ax.xaxis.grid(getattr(self, 'vgrid_var', None) and self.vgrid_var.get(), 
-                     which='major', linestyle='-', alpha=0.3)
+        # Apply grid settings
+        grid_color = self.grid_color_var.get()
+        
+        # Horizontal grid
+        if getattr(self, 'hgrid_var', None) and self.hgrid_var.get():
+            # Major grid lines
+            ax.yaxis.grid(True, which='major', linestyle='-', alpha=0.5, color=grid_color)
+            # Minor grid lines
+            ax.yaxis.grid(True, which='minor', linestyle=':', alpha=0.3, color=grid_color)
+        else:
+            ax.yaxis.grid(False)
+        
+        # Vertical grid
+        if getattr(self, 'vgrid_var', None) and self.vgrid_var.get():
+            # Major grid lines
+            ax.xaxis.grid(True, which='major', linestyle='-', alpha=0.5, color=grid_color)
+            # Minor grid lines
+            ax.xaxis.grid(True, which='minor', linestyle=':', alpha=0.3, color=grid_color)
+        else:
+            ax.xaxis.grid(False)
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
