@@ -77,6 +77,9 @@ class BrainStatsUI:
         self.next_btn = ttk.Button(self.image_nav_frame, text='Next', command=self.next_image)
         self.prev_btn.pack(side=tk.LEFT)
         self.next_btn.pack(side=tk.LEFT)
+        # Add slider for image navigation
+        self.image_slider = tk.Scale(self.plot_frame, from_=0, to=0, orient=tk.HORIZONTAL, showvalue=0, command=self.on_slider_move)
+        self.image_slider.pack(fill=tk.X, pady=5)
         self.img_idx = 0
         self.images = []
         # Do not destroy image_label or image_nav_frame, only update their content
@@ -202,6 +205,7 @@ class BrainStatsUI:
                 self.image_nav_frame.pack()
                 self.prev_btn.config(state=tk.DISABLED)
                 self.next_btn.config(state=tk.DISABLED)
+                self.image_slider.config(state=tk.DISABLED)
             except tk.TclError:
                 pass
             return
@@ -222,6 +226,12 @@ class BrainStatsUI:
         self.image_nav_frame.pack()
         self.prev_btn.config(state=tk.NORMAL if self.img_idx > 0 else tk.DISABLED)
         self.next_btn.config(state=tk.NORMAL if self.img_idx < len(self.images)-1 else tk.DISABLED)
+        # Update slider
+        if len(self.images) > 1:
+            self.image_slider.config(state=tk.NORMAL, from_=0, to=len(self.images)-1)
+            self.image_slider.set(self.img_idx)
+        else:
+            self.image_slider.config(state=tk.DISABLED, from_=0, to=0)
 
     def prev_image(self):
         if self.img_idx > 0:
@@ -231,6 +241,12 @@ class BrainStatsUI:
     def next_image(self):
         if self.img_idx < len(self.images)-1:
             self.img_idx += 1
+            self.show_image()
+
+    def on_slider_move(self, value):
+        idx = int(float(value))
+        if idx != self.img_idx and 0 <= idx < len(self.images):
+            self.img_idx = idx
             self.show_image()
 
     def hide_image_widgets(self):
