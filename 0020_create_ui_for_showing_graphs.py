@@ -29,8 +29,8 @@ class BrainStatsUI:
     
     def setup_widgets(self):
         # Controls pane (fixed height)
-        controls_frame = ttk.Frame(self.root, height=80)
-        controls_frame.pack(fill=tk.X, expand=False)
+        controls_frame = ttk.Frame(self.root)
+        controls_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1, expand=False)
         controls_frame.pack_propagate(False)
         # Filter for studies (row 0)
         ttk.Label(controls_frame, text="Filter:").grid(row=0, column=0, sticky=tk.W)
@@ -43,34 +43,30 @@ class BrainStatsUI:
         ttk.Label(controls_frame, text="Study:").grid(row=1, column=0, sticky=tk.W)
         self.study_var = tk.StringVar()
         self.study_cb = ttk.Combobox(controls_frame, textvariable=self.study_var, state='readonly', width=40)
-        self.study_cb.grid(row=1, column=1, columnspan=5, sticky=tk.W+tk.E)
+        self.study_cb.grid(row=1, column=1, columnspan=5, sticky=tk.W+tk.E, ipady=0, pady=0)
         self.study_cb.bind('<<ComboboxSelected>>', self.on_study_selected)
 
         # Type and Tag selectors (row 2)
         ttk.Label(controls_frame, text="Type:").grid(row=2, column=0, sticky=tk.W)
         self.type_var = tk.StringVar(value='scalar')
         self.type_cb = ttk.Combobox(controls_frame, textvariable=self.type_var, state='readonly', values=['scalar', 'image'])
-        self.type_cb.grid(row=2, column=1, sticky=tk.W)
+        self.type_cb.grid(row=2, column=1, sticky=tk.W, ipady=0, pady=0)
         self.type_cb.bind('<<ComboboxSelected>>', self.on_type_selected)
 
         ttk.Label(controls_frame, text="Tag:").grid(row=2, column=2, sticky=tk.W)
         self.tag_var = tk.StringVar()
         self.tag_cb = ttk.Combobox(controls_frame, textvariable=self.tag_var, state='readonly', width=40)
-        self.tag_cb.grid(row=2, column=3, columnspan=2, sticky=tk.W+tk.E)
+        self.tag_cb.grid(row=2, column=3, columnspan=2, sticky=tk.W+tk.E, ipady=0, pady=0)
         self.tag_cb.bind('<<ComboboxSelected>>', self.on_tag_selected)
 
         # Log scale checkbox (row 2)
         self.log_scale_var = tk.BooleanVar(value=False)
         self.log_scale_cb = ttk.Checkbutton(controls_frame, text="Log Y", variable=self.log_scale_var, command=self.on_log_scale_toggle)
-        self.log_scale_cb.grid(row=2, column=5, sticky=tk.W)
-
-        # Plot area (expands)
-        self.plot_frame = ttk.Frame(self.root)
-        self.plot_frame.pack(fill=tk.BOTH, expand=True)
+        self.log_scale_cb.grid(row=2, column=5, sticky=tk.W, ipady=0, pady=0)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
-        self.paned.pack(fill=tk.BOTH, expand=True)
+        self.paned.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # Top pane: plot area
         self.plot_frame = ttk.Frame(self.paned)
         self.paned.add(self.plot_frame, weight=3)
