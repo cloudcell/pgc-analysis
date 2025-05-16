@@ -1,6 +1,6 @@
 # use tkinter to create a ui to show the graphs
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 import duckdb
 import io
@@ -10,6 +10,7 @@ from matplotlib.ticker import AutoMinorLocator, LogLocator
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
 import os
+import datetime
 
 DB_PATH = 'brain_stats.duckdb'
 
@@ -350,6 +351,43 @@ class BrainStatsUI:
         # Schedule a new save after a short delay
         self.save_timer_id = self.root.after(500, self.save_settings)
     
+    def show_plot_context_menu(self, event):
+        """Show context menu on right-click on the plot"""
+        if hasattr(self, 'current_figure'):
+            # Create a context menu
+            context_menu = tk.Menu(self.root, tearoff=0)
+            context_menu.add_command(label="Save as PNG...", command=self.save_plot_as_png)
+            
+            # Display the menu at the cursor position
+            try:
+                context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                # Make sure to release the grab
+                context_menu.grab_release()
+    
+    def save_plot_as_png(self):
+        """Save the current plot as a PNG file"""
+        if not hasattr(self, 'current_figure'):
+            return
+            
+        # Generate default filename based on study and tag
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"{self.current_study}_{self.current_tag}_{timestamp}.png"
+        
+        # Ask user for save location
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            initialfile=default_filename
+        )
+        
+        if filename:
+            try:
+                self.current_figure.savefig(filename, dpi=300, bbox_inches='tight')
+                print(f"Plot saved to {filename}")
+            except Exception as e:
+                print(f"Error saving plot: {e}")
+    
     def on_close(self):
         """Save settings when closing the app"""
         # Cancel any pending save
@@ -418,7 +456,16 @@ class BrainStatsUI:
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
-        self.scalar_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas_widget = self.scalar_canvas.get_tk_widget()
+        canvas_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # Store the figure for saving
+        self.current_figure = fig
+        self.current_tag = tag
+        self.current_study = study
+        
+        # Add right-click menu for saving
+        canvas_widget.bind("<Button-3>", self.show_plot_context_menu)
         plt.close(fig)
 
     def load_images(self):
