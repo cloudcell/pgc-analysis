@@ -2,5 +2,7 @@
 *.db
 *.wal
 *.pyc
+*.duckdb
+__pycache__
 
 
