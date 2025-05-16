@@ -75,20 +75,25 @@ class BrainStatsUI:
         self.image_frame = ttk.Frame(self.paned)
         self.paned.add(self.image_frame, weight=2)
         self.image_frame.pack_propagate(False)
-        # For images: image area widgets
+        # For images: image area widgets (grid layout for full expansion)
+        self.image_frame.rowconfigure(0, weight=1)
+        self.image_frame.rowconfigure(1, weight=0)
+        self.image_frame.rowconfigure(2, weight=0)
+        self.image_frame.rowconfigure(3, weight=0)
+        self.image_frame.columnconfigure(0, weight=1)
         self.image_label = ttk.Label(self.image_frame)
-        self.image_label.pack(fill=tk.BOTH, expand=True)
+        self.image_label.grid(row=0, column=0, sticky='nsew')
         self.sample_id_label = ttk.Label(self.image_frame, text="")
-        self.sample_id_label.pack(fill=tk.X)
+        self.sample_id_label.grid(row=1, column=0, sticky='ew')
         self.image_nav_frame = ttk.Frame(self.image_frame)
-        self.image_nav_frame.pack(fill=tk.X)
+        self.image_nav_frame.grid(row=2, column=0, sticky='ew')
         self.prev_btn = ttk.Button(self.image_nav_frame, text='Previous', command=self.prev_image)
         self.next_btn = ttk.Button(self.image_nav_frame, text='Next', command=self.next_image)
         self.prev_btn.pack(side=tk.LEFT)
         self.next_btn.pack(side=tk.LEFT)
         # Add slider for image navigation
         self.image_slider = tk.Scale(self.image_frame, from_=0, to=0, orient=tk.HORIZONTAL, showvalue=0, command=self.on_slider_move)
-        self.image_slider.pack(fill=tk.X, pady=5)
+        self.image_slider.grid(row=3, column=0, sticky='ew', pady=5)
         self.img_idx = 0
         self.images = []
         # Do not destroy image_label or image_nav_frame, only update their content
