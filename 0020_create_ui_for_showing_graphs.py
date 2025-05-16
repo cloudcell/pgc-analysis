@@ -243,17 +243,31 @@ class BrainStatsUI:
         
     def save_settings(self):
         """Save current settings to a JSON file"""
+        # Get window geometry
+        geometry = self.root.geometry()
+        # Get pane sash position
+        try:
+            sash_pos = self.paned.sashpos(0)
+        except:
+            sash_pos = 0
+            
         settings = {
+            # UI control settings
             'log_scale': self.log_scale_var.get(),
             'show_dots': self.show_dots_var.get(),
             'h_grid': self.hgrid_var.get(),
             'v_grid': self.vgrid_var.get(),
             'grid_color': self.grid_color_var.get(),
             'line_color': self.line_color_var.get(),
-            # Save the last viewed study and tag if available
+            
+            # Last viewed data
             'last_study': self.study_var.get() if hasattr(self, 'study_var') else '',
             'last_type': self.type_var.get() if hasattr(self, 'type_var') else '',
-            'last_tag': self.tag_var.get() if hasattr(self, 'tag_var') else ''
+            'last_tag': self.tag_var.get() if hasattr(self, 'tag_var') else '',
+            
+            # Window layout
+            'window_geometry': geometry,
+            'pane_sash_position': sash_pos
         }
         
         try:
@@ -293,6 +307,25 @@ class BrainStatsUI:
                 'last_type': settings.get('last_type', ''),
                 'last_tag': settings.get('last_tag', '')
             }
+            
+            # Apply window layout settings after a short delay to ensure widgets are ready
+            def apply_layout():
+                # Set window geometry
+                if 'window_geometry' in settings:
+                    try:
+                        self.root.geometry(settings['window_geometry'])
+                    except Exception as e:
+                        print(f"Could not restore window geometry: {e}")
+                
+                # Set pane sash position
+                if 'pane_sash_position' in settings:
+                    try:
+                        self.paned.sashpos(0, settings['pane_sash_position'])
+                    except Exception as e:
+                        print(f"Could not restore pane positions: {e}")
+            
+            # Apply layout after a short delay to ensure widgets are ready
+            self.root.after(100, apply_layout)
                 
             print(f"Settings loaded from {self.settings_file}")
         except Exception as e:
