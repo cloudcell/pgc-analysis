@@ -68,19 +68,30 @@ class BrainStatsUI:
         self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
-        # For images: image area
-        self.image_label = ttk.Label(self.plot_frame)
-        self.image_label.pack()
-        self.sample_id_label = ttk.Label(self.plot_frame, text="")
+        # Paned window for resizable split
+        self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
+        self.paned.pack(fill=tk.BOTH, expand=True)
+        # Top pane: plot area
+        self.plot_frame = ttk.Frame(self.paned)
+        self.paned.add(self.plot_frame, weight=3)
+        self.plot_frame.pack_propagate(False)
+        # Bottom pane: image area
+        self.image_frame = ttk.Frame(self.paned)
+        self.paned.add(self.image_frame, weight=2)
+        self.image_frame.pack_propagate(False)
+        # For images: image area widgets
+        self.image_label = ttk.Label(self.image_frame)
+        self.image_label.pack(fill=tk.BOTH, expand=True)
+        self.sample_id_label = ttk.Label(self.image_frame, text="")
         self.sample_id_label.pack()
-        self.image_nav_frame = ttk.Frame(self.plot_frame)
+        self.image_nav_frame = ttk.Frame(self.image_frame)
         self.image_nav_frame.pack()
         self.prev_btn = ttk.Button(self.image_nav_frame, text='Previous', command=self.prev_image)
         self.next_btn = ttk.Button(self.image_nav_frame, text='Next', command=self.next_image)
         self.prev_btn.pack(side=tk.LEFT)
         self.next_btn.pack(side=tk.LEFT)
         # Add slider for image navigation
-        self.image_slider = tk.Scale(self.plot_frame, from_=0, to=0, orient=tk.HORIZONTAL, showvalue=0, command=self.on_slider_move)
+        self.image_slider = tk.Scale(self.image_frame, from_=0, to=0, orient=tk.HORIZONTAL, showvalue=0, command=self.on_slider_move)
         self.image_slider.pack(fill=tk.X, pady=5)
         self.img_idx = 0
         self.images = []
