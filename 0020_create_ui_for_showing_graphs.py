@@ -248,7 +248,9 @@ class BrainStatsUI:
         # Get pane sash position
         try:
             sash_pos = self.paned.sashpos(0)
-        except:
+            print(f"Saving sash position: {sash_pos}")
+        except Exception as e:
+            print(f"Could not get sash position: {e}")
             sash_pos = 0
             
         settings = {
@@ -320,12 +322,14 @@ class BrainStatsUI:
                 # Set pane sash position
                 if 'pane_sash_position' in settings:
                     try:
-                        self.paned.sashpos(0, settings['pane_sash_position'])
+                        sash_pos = int(settings['pane_sash_position'])
+                        print(f"Restoring sash position to: {sash_pos}")
+                        self.paned.sashpos(0, sash_pos)
                     except Exception as e:
                         print(f"Could not restore pane positions: {e}")
             
-            # Apply layout after a short delay to ensure widgets are ready
-            self.root.after(100, apply_layout)
+            # Apply layout after a longer delay to ensure widgets are fully ready
+            self.root.after(300, apply_layout)
                 
             print(f"Settings loaded from {self.settings_file}")
         except Exception as e:
