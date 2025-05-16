@@ -50,9 +50,17 @@ def process_event_file(event_file, study_name):
     # Images
     for tag in ea.Tags().get('images', []):
         for img_event in ea.Images(tag):
+            # Detect image format using PIL
+            try:
+                from PIL import Image
+                import io
+                img = Image.open(io.BytesIO(img_event.encoded_image_string))
+                img_format = img.format or "unknown"
+            except Exception:
+                img_format = "unknown"
             con.execute(
                 "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?)",
-                [study_name, tag, img_event.step, img_event.wall_time, img_event.encoded_image_string[:10], duckdb.blob(img_event.encoded_image_string)]
+                [study_name, tag, img_event.step, img_event.wall_time, img_format, img_event.encoded_image_string]
             )
 
 def main():

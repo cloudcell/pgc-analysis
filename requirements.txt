@@ -2,3 +2,4 @@ duckdb
 pyarrow
 pathlib
 tensorboard
+Pillow

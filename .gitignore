@@ -1,2 +1,6 @@
 /venv/
+*.db
+*.wal
+*.pyc
+
 
