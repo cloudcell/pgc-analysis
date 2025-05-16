@@ -74,22 +74,22 @@ class BrainStatsUI:
 
         # Log scale checkbox (row 2)
         self.log_scale_var = tk.BooleanVar(value=False)
-        self.log_scale_cb = ttk.Checkbutton(controls_frame, text="Log Y", variable=self.log_scale_var, command=self.on_log_scale_toggle)
+        self.log_scale_cb = ttk.Checkbutton(controls_frame, text="Log Y", variable=self.log_scale_var, command=self.on_plot_parameter_change)
         self.log_scale_cb.grid(row=2, column=5, sticky=tk.W, ipady=0, pady=0)
         
         # Show dots checkbox
         self.show_dots_var = tk.BooleanVar(value=True)
-        self.show_dots_cb = ttk.Checkbutton(controls_frame, text="Show Dots", variable=self.show_dots_var, command=self.on_show_dots_toggle)
+        self.show_dots_cb = ttk.Checkbutton(controls_frame, text="Show Dots", variable=self.show_dots_var, command=self.on_plot_parameter_change)
         self.show_dots_cb.grid(row=2, column=6, sticky=tk.W, ipady=0, pady=0)
         
         # Horizontal grid lines checkbox
         self.hgrid_var = tk.BooleanVar(value=False)
-        self.hgrid_cb = ttk.Checkbutton(controls_frame, text="H-Grid", variable=self.hgrid_var, command=self.on_grid_toggle)
+        self.hgrid_cb = ttk.Checkbutton(controls_frame, text="H-Grid", variable=self.hgrid_var, command=self.on_plot_parameter_change)
         self.hgrid_cb.grid(row=2, column=7, sticky=tk.W, ipady=0, pady=0)
         
         # Vertical grid lines checkbox
         self.vgrid_var = tk.BooleanVar(value=False)
-        self.vgrid_cb = ttk.Checkbutton(controls_frame, text="V-Grid", variable=self.vgrid_var, command=self.on_grid_toggle)
+        self.vgrid_cb = ttk.Checkbutton(controls_frame, text="V-Grid", variable=self.vgrid_var, command=self.on_plot_parameter_change)
         self.vgrid_cb.grid(row=2, column=8, sticky=tk.W, ipady=0, pady=0)
         
         # Grid color selection (row 3)
@@ -98,7 +98,7 @@ class BrainStatsUI:
         self.grid_color_cb = ttk.Combobox(controls_frame, textvariable=self.grid_color_var, state='readonly', 
                                       values=["gray", "black", "blue", "green", "red", "orange"])
         self.grid_color_cb.grid(row=3, column=1, sticky=tk.W, ipady=0, pady=0)
-        self.grid_color_cb.bind('<<ComboboxSelected>>', self.on_grid_toggle)
+        self.grid_color_cb.bind('<<ComboboxSelected>>', self.on_plot_parameter_change)
         
         # Line color selection (row 3)
         ttk.Label(controls_frame, text="Line Color:").grid(row=3, column=2, sticky=tk.W)
@@ -106,7 +106,7 @@ class BrainStatsUI:
         self.line_color_cb = ttk.Combobox(controls_frame, textvariable=self.line_color_var, state='readonly', 
                                       values=["blue", "black", "red", "green", "orange", "purple"])
         self.line_color_cb.grid(row=3, column=3, sticky=tk.W, ipady=0, pady=0)
-        self.line_color_cb.bind('<<ComboboxSelected>>', self.on_show_dots_toggle)
+        self.line_color_cb.bind('<<ComboboxSelected>>', self.on_plot_parameter_change)
 
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -231,17 +231,8 @@ class BrainStatsUI:
             self.load_images()
             self.show_image()
 
-    def on_log_scale_toggle(self, event=None):
-        if self.type_var.get() == 'scalar':
-            self.show_scalar_plot()
-        self.save_settings()
-            
-    def on_show_dots_toggle(self, event=None):
-        if self.type_var.get() == 'scalar':
-            self.show_scalar_plot()
-        self.save_settings()
-            
-    def on_grid_toggle(self, event=None):
+    def on_plot_parameter_change(self, event=None):
+        """Unified handler for any plot parameter change (log scale, dots, grid, colors)"""
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
         self.save_settings()
