@@ -200,17 +200,17 @@ class BrainStatsUI:
             self.load_images()
             self.show_image()
 
-    def on_log_scale_toggle(self):
+    def on_log_scale_toggle(self, event=None):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
         self.save_settings()
             
-    def on_show_dots_toggle(self):
+    def on_show_dots_toggle(self, event=None):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
         self.save_settings()
             
-    def on_grid_toggle(self):
+    def on_grid_toggle(self, event=None):
         if self.type_var.get() == 'scalar':
             self.show_scalar_plot()
         self.save_settings()
