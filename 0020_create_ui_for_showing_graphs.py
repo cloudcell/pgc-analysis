@@ -372,7 +372,12 @@ class BrainStatsUI:
             
         # Generate default filename based on study and tag
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_filename = f"{self.current_study}_{self.current_tag}_{timestamp}.png"
+        
+        # Sanitize study and tag names by removing problematic characters
+        safe_study = self.sanitize_filename(self.current_study)
+        safe_tag = self.sanitize_filename(self.current_tag)
+        
+        default_filename = f"{safe_study}_{safe_tag}_{timestamp}.png"
         
         # Ask user for save location
         filename = filedialog.asksaveasfilename(
@@ -387,6 +392,19 @@ class BrainStatsUI:
                 print(f"Plot saved to {filename}")
             except Exception as e:
                 print(f"Error saving plot: {e}")
+                
+    def sanitize_filename(self, filename):
+        """Remove characters that are problematic in filenames"""
+        if not filename:
+            return "unnamed"
+            
+        # Replace slashes, backslashes and other problematic characters
+        invalid_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+        result = filename
+        for char in invalid_chars:
+            result = result.replace(char, '_')
+            
+        return result
     
     def on_close(self):
         """Save settings when closing the app"""
