@@ -15,9 +15,14 @@ class BrainStatsUI:
         self.root = root
         self.root.title('Brain Stats Viewer')
         try:
-            self.root.iconbitmap('assets/CLOUDCELL-32x32.ico')
+            icon_img = tk.PhotoImage(file='assets/CLOUDCELL-32x32-0.png')
+            self.root.iconphoto(True, icon_img)
         except Exception as e:
-            pass  # Ignore icon error if running on Linux/Wayland or missing icon
+            try:
+                self.root.iconbitmap('assets/CLOUDCELL-32x32.ico')
+            except Exception:
+                pass  # Ignore icon error if running on Linux/Wayland or missing icon
+        self._icon_img = icon_img if 'icon_img' in locals() else None  # Prevent garbage collection
         self.con = duckdb.connect(DB_PATH, read_only=True)
         self.setup_widgets()
         self.load_studies()
@@ -126,6 +131,7 @@ class BrainStatsUI:
             tags = [row[0] for row in self.con.execute("SELECT DISTINCT tag FROM scalars WHERE study=?", [study]).fetchall()]
         else:
             tags = [row[0] for row in self.con.execute("SELECT DISTINCT tag FROM images WHERE study=?", [study]).fetchall()]
+        tags = sorted(tags)
         self.tag_cb['values'] = tags
         if tags:
             self.tag_cb.current(0)
