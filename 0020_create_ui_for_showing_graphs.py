@@ -34,6 +34,11 @@ class BrainStatsUI:
         
         # Save settings when closing the app
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        
+        # Track window and pane resize events
+        self.save_timer_id = None
+        self.root.bind("<Configure>", self.on_window_configure)
+        self.paned.bind("<ButtonRelease-1>", self.on_sash_release)
     
     def setup_widgets(self):
         # Controls pane (fixed height)
@@ -335,8 +340,31 @@ class BrainStatsUI:
         except Exception as e:
             print(f"Error loading settings: {e}")
     
+    def on_window_configure(self, event):
+        """Called when window is resized"""
+        # Only respond to root window configure events, not child widgets
+        if event.widget == self.root:
+            self.debounced_save()
+    
+    def on_sash_release(self, event):
+        """Called when pane sash is released after dragging"""
+        self.debounced_save()
+    
+    def debounced_save(self):
+        """Save settings with debouncing to prevent excessive saves"""
+        # Cancel any pending save
+        if self.save_timer_id:
+            self.root.after_cancel(self.save_timer_id)
+        
+        # Schedule a new save after a short delay
+        self.save_timer_id = self.root.after(500, self.save_settings)
+    
     def on_close(self):
         """Save settings when closing the app"""
+        # Cancel any pending save
+        if self.save_timer_id:
+            self.root.after_cancel(self.save_timer_id)
+        # Save immediately
         self.save_settings()
         self.root.destroy()
 

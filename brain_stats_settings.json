@@ -3,11 +3,11 @@
     "show_dots": false,
     "h_grid": true,
     "v_grid": true,
-    "grid_color": "green",
+    "grid_color": "black",
     "line_color": "blue",
-    "last_study": "674gs_pgc_fit.py_20250515_000756_784e_10c_7d_2s_8i",
-    "last_type": "scalar",
-    "last_tag": "Batch/Accuracy",
+    "last_study": "674gs_pgc_fit.py_20250513_124256_784e_256c_3d_3s_8i",
+    "last_type": "image",
+    "last_tag": "Brain/train/BlockUsageHeatmap",
     "window_geometry": "1610x977+22+24",
-    "pane_sash_position": 767
+    "pane_sash_position": 284
 }
