@@ -1,6 +1,7 @@
 # use tkinter to create a ui to show the graphs
+import os
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog, simpledialog
 from tkinter.scrolledtext import ScrolledText
 import duckdb
 import io
@@ -17,9 +18,30 @@ import numpy as np
 # replace the string "Brain" with "PGC" in the tag when displayed on the graphs/charts
 
 
+def create_folder(path):
+    try:
+        os.makedirs(path, exist_ok=True)
+        return True
+    except Exception as e:
+        messagebox.showerror("Error", f"Could not create folder:\n{e}")
+        return False
+
 DB_PATH = 'brain_stats.duckdb'
 
 class BrainStatsUI:
+    def create_folder_and_save_plot(self):
+        """Prompt for a new folder, create it, and open the save dialog there."""
+        parent = filedialog.askdirectory(title="Select parent directory for new folder")
+        if not parent:
+            return
+        folder_name = simpledialog.askstring("Create Folder", "Enter new folder name:")
+        if not folder_name:
+            return
+        new_folder = os.path.join(parent, folder_name)
+        if not create_folder(new_folder):
+            return
+        self.save_plot_as_png(initialdir=new_folder)
+
     def __init__(self, root):
         self.root = root
         self.root.title('PGC Stats Viewer')
@@ -440,15 +462,14 @@ class BrainStatsUI:
             # Create a context menu
             context_menu = tk.Menu(self.root, tearoff=0)
             context_menu.add_command(label="Save as PNG...", command=self.save_plot_as_png)
-            
-            # Display the menu at the cursor position
+            context_menu.add_command(label="Create Folder and Save...", command=self.create_folder_and_save_plot)
             try:
                 context_menu.tk_popup(event.x_root, event.y_root)
             finally:
                 # Make sure to release the grab
                 context_menu.grab_release()
     
-    def save_plot_as_png(self):
+    def save_plot_as_png(self, initialdir=None):
         """Save the current plot as a PNG file"""
         if not hasattr(self, 'current_figure'):
             return
@@ -463,11 +484,14 @@ class BrainStatsUI:
         default_filename = f"{safe_study}_{safe_tag}_{timestamp}.png"
         
         # Ask user for save location
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".png",
-            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
-            initialfile=default_filename
-        )
+        options = {
+            'defaultextension': ".png",
+            'filetypes': [("PNG files", "*.png"), ("All files", "*.*")],
+            'initialfile': default_filename
+        }
+        if initialdir:
+            options['initialdir'] = initialdir
+        filename = filedialog.asksaveasfilename(**options)
         
         if filename:
             try:
@@ -475,6 +499,23 @@ class BrainStatsUI:
                 print(f"Plot saved to {filename}")
             except Exception as e:
                 print(f"Error saving plot: {e}")
+                
+    def create_folder_and_save_plot(self):
+        """Create a new folder and save the plot in it"""
+        # Ask user for new folder name
+        new_folder_name = simpledialog.askstring("Create Folder", "Enter new folder name")
+        if not new_folder_name:
+            return
+        
+        # Create the new folder
+        try:
+            os.mkdir(new_folder_name)
+        except Exception as e:
+            print(f"Error creating folder: {e}")
+            return
+        
+        # Save the plot in the new folder
+        self.save_plot_as_png(initialdir=new_folder_name)
                 
     def sanitize_filename(self, filename):
         """Remove characters that are problematic in filenames"""
