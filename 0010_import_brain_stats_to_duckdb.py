@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS scalars (
     tag TEXT,
     step INTEGER,
     wall_time DOUBLE,
-    value DOUBLE
+    value DOUBLE,
+    machine TEXT
 )
 ''')
 con.execute('''
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS images (
     step INTEGER,
     wall_time DOUBLE,
     image_format TEXT,
-    image_data BLOB
+    image_data BLOB,
+    machine TEXT
 )
 ''')
 
@@ -49,7 +51,8 @@ def setup_database(mode='append'):
         tag VARCHAR,
         step BIGINT,
         wall_time DOUBLE,
-        value DOUBLE
+        value DOUBLE,
+        machine VARCHAR
     )
     """)
     
@@ -60,28 +63,50 @@ def setup_database(mode='append'):
         step BIGINT,
         wall_time DOUBLE,
         image_format VARCHAR,
-        image_data BLOB
+        image_data BLOB,
+        machine VARCHAR
     )
     """)
     
     con.close()
 
+def extract_machine_name(event_file):
+    """Extract machine name from event file path"""
+    # Example: events.out.tfevents.1747303702.zen.5470.0
+    try:
+        # Split by dots and get the machine name part (typically the 5th part)
+        parts = event_file.name.split('.')
+        if len(parts) >= 5:
+            return parts[4]  # This should be the machine name
+    except Exception:
+        pass
+    return 'unknown'  # Default if we can't extract the machine name
+
 def process_event_file(event_file, study_name):
-    ea = event_accumulator.EventAccumulator(str(event_file), size_guidance={
-        event_accumulator.SCALARS: 0,
-        event_accumulator.IMAGES: 0,
-    })
+    ea = event_accumulator.EventAccumulator(
+        str(event_file),
+        size_guidance={
+            event_accumulator.SCALARS: 0,  # 0 means load all
+            event_accumulator.IMAGES: 0,
+        }
+    )
     try:
         ea.Reload()
     except Exception as e:
         print(f"Could not load {event_file}: {e}")
         return
+    
+    # Extract machine name from event file path
+    machine_name = extract_machine_name(event_file)
+    
+    con = duckdb.connect(DUCKDB_FILE)
+    
     # Scalars
     for tag in ea.Tags().get('scalars', []):
         for scalar_event in ea.Scalars(tag):
             con.execute(
-                "INSERT INTO scalars VALUES (?, ?, ?, ?, ?)",
-                [study_name, tag, scalar_event.step, scalar_event.wall_time, scalar_event.value]
+                "INSERT INTO scalars VALUES (?, ?, ?, ?, ?, ?)",
+                [study_name, tag, scalar_event.step, scalar_event.wall_time, scalar_event.value, machine_name]
             )
     # Images
     for tag in ea.Tags().get('images', []):
@@ -95,8 +120,8 @@ def process_event_file(event_file, study_name):
             except Exception:
                 img_format = "unknown"
             con.execute(
-                "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?)",
-                [study_name, tag, img_event.step, img_event.wall_time, img_format, img_event.encoded_image_string]
+                "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [study_name, tag, img_event.step, img_event.wall_time, img_format, img_event.encoded_image_string, machine_name]
             )
 
 def main():

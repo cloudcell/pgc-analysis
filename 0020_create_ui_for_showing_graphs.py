@@ -35,6 +35,9 @@ class BrainStatsUI:
         self.con = duckdb.connect(DB_PATH, read_only=True)
         self.settings_file = 'brain_stats_settings.json'
         
+        # Get available machines
+        self.machines = ['All'] + self.load_machines()
+        
         # Define color palette for multiple lines
         self.color_palette = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'olive', 'cyan']
         
@@ -55,12 +58,18 @@ class BrainStatsUI:
         controls_frame = ttk.Frame(self.root)
         controls_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1, expand=False)
         controls_frame.pack_propagate(False)
-        # Filter for studies (row 0)
+        # Filter for studies and machine selector (row 0)
         ttk.Label(controls_frame, text="Filter:").grid(row=0, column=0, sticky=tk.W)
         self.filter_var = tk.StringVar()
         self.filter_entry = ttk.Entry(controls_frame, textvariable=self.filter_var, width=20)
         self.filter_entry.grid(row=0, column=1, sticky=tk.W)
         self.filter_var.trace_add('write', self.on_filter_change)
+        
+        ttk.Label(controls_frame, text="Machine:").grid(row=0, column=2, sticky=tk.W, padx=(10, 0))
+        self.machine_var = tk.StringVar(value='All')
+        self.machine_cb = ttk.Combobox(controls_frame, textvariable=self.machine_var, state='readonly', values=self.machines, width=10)
+        self.machine_cb.grid(row=0, column=3, sticky=tk.W)
+        self.machine_cb.bind('<<ComboboxSelected>>', self.on_filter_change)
 
         # Study selector (row 1)
         ttk.Label(controls_frame, text="Study:").grid(row=1, column=0, sticky=tk.W)
@@ -185,9 +194,14 @@ class BrainStatsUI:
         # Do not destroy image_label or image_nav_frame, only update their content
         self.hide_image_widgets()
 
+    def load_machines(self):
+        """Load all available machine names from the database"""
+        machines = [row[0] for row in self.con.execute("SELECT DISTINCT machine FROM scalars").fetchall()]
+        return sorted(machines)
+    
     def load_studies(self):
-        self._all_studies = [row[0] for row in self.con.execute("SELECT DISTINCT study FROM scalars UNION SELECT DISTINCT study FROM images").fetchall()]
-        self._all_studies = sorted(self._all_studies)
+        studies = [row[0] for row in self.con.execute("SELECT DISTINCT study FROM scalars").fetchall()]
+        self.studies = sorted(studies)
         self.update_study_list()
 
     def on_filter_change(self, *args):
@@ -195,37 +209,50 @@ class BrainStatsUI:
 
     def update_study_list(self):
         filter_text = self.filter_var.get().lower()
-        cursor_pos = self.filter_entry.index(tk.INSERT)
+        machine_filter = self.machine_var.get()
         
-        if filter_text:
-            filtered = [s for s in self._all_studies if filter_text in s.lower()]
+        # Apply machine filter if not 'All'
+        if machine_filter != 'All':
+            # Get studies for the selected machine
+            query = "SELECT DISTINCT study FROM scalars WHERE machine = ?"
+            machine_studies = [row[0] for row in self.con.execute(query, [machine_filter]).fetchall()]
+            # Filter the studies list
+            filtered_by_machine = [s for s in self.studies if s in machine_studies]
         else:
-            filtered = self._all_studies
+            filtered_by_machine = self.studies
+        
+        # Then apply text filter
+        if filter_text:
+            filtered_studies = [s for s in filtered_by_machine if filter_text in s.lower()]
+        else:
+            filtered_studies = filtered_by_machine
             
-        self.study_cb['values'] = filtered
+        self.study_cb['values'] = filtered_studies
         
         # Try to maintain current selection if it's still in the filtered list
         current_study = self.study_var.get()
-        if filtered:
-            if current_study not in filtered:
-                # Check if we have a saved study to restore
-                if hasattr(self, 'last_settings') and self.last_settings['last_study'] in filtered:
+        if filtered_studies:
+            if current_study not in filtered_studies:
+                # Restore last selected values if they exist
+                if 'last_machine' in self.last_settings and self.last_settings['last_machine'] in self.machines:
+                    self.machine_var.set(self.last_settings['last_machine'])
+                
+                if 'last_study' in self.last_settings and self.last_settings['last_study'] in self.studies:
                     self.study_var.set(self.last_settings['last_study'])
-                    # Also restore type if possible
-                    if self.last_settings['last_type'] in ['scalar', 'image']:
-                        self.type_var.set(self.last_settings['last_type'])
-                else:
-                    self.study_cb.current(0)
+                    self.on_study_selected()
+                
+                if 'last_type' in self.last_settings:
+                    self.type_var.set(self.last_settings['last_type'])
+                    self.on_type_selected()
+                self.study_cb.current(0)
                 self.on_study_selected()
         else:
             self.study_var.set('')
             self.tag_cb['values'] = []
-        # Restore focus and cursor position after update
-        def refocus():
-            self.filter_entry.focus_set()
-            self.filter_entry.icursor(cursor_pos)
-        self.root.after(1, refocus)
-
+        
+        # Save settings
+        self.save_settings()
+        
     def on_study_selected(self, event=None):
         study = self.study_var.get()
         self.load_tags(study, self.type_var.get())
@@ -318,6 +345,7 @@ class BrainStatsUI:
             'last_study': self.study_var.get() if hasattr(self, 'study_var') else '',
             'last_type': self.type_var.get() if hasattr(self, 'type_var') else '',
             'last_tag': self.tag_var.get() if hasattr(self, 'tag_var') else '',
+            'last_machine': self.machine_var.get() if hasattr(self, 'machine_var') else '',
             
             # Window layout
             'window_geometry': geometry,
