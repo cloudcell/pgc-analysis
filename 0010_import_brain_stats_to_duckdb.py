@@ -1,6 +1,7 @@
 import os
 import duckdb
 from pathlib import Path
+import argparse
 from tensorboard.backend.event_processing import event_accumulator
 import base64
 
@@ -29,6 +30,40 @@ CREATE TABLE IF NOT EXISTS images (
     image_data BLOB
 )
 ''')
+
+def setup_database(mode='append'):
+    """Set up the database based on the specified mode"""
+    con = duckdb.connect(DUCKDB_FILE)
+    
+    if mode == 'reset':
+        # Drop tables if they exist
+        con.execute("DROP TABLE IF EXISTS scalars")
+        con.execute("DROP TABLE IF EXISTS images")
+        print(f"Reset: Dropped existing tables in {DUCKDB_FILE}")
+    
+    # Create tables if they don't exist
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS scalars (
+        study VARCHAR,
+        tag VARCHAR,
+        step BIGINT,
+        wall_time DOUBLE,
+        value DOUBLE
+    )
+    """)
+    
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS images (
+        study VARCHAR,
+        tag VARCHAR,
+        step BIGINT,
+        wall_time DOUBLE,
+        image_format VARCHAR,
+        image_data BLOB
+    )
+    """)
+    
+    con.close()
 
 def process_event_file(event_file, study_name):
     ea = event_accumulator.EventAccumulator(str(event_file), size_guidance={
@@ -64,6 +99,16 @@ def process_event_file(event_file, study_name):
             )
 
 def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Import TensorBoard event files to DuckDB')
+    parser.add_argument('--mode', choices=['reset', 'append'], required=True,
+                       help='Mode: reset (drop all tables) or append (add to existing data)')
+    args = parser.parse_args()
+    
+    # Set up database based on mode
+    setup_database(args.mode)
+    
+    # Process event files
     for subdir in RUNS_DIR.iterdir():
         if not subdir.is_dir():
             continue
@@ -71,7 +116,8 @@ def main():
         for event_file in subdir.glob('events.out.tfevents.*'):
             print(f"Processing {event_file}")
             process_event_file(event_file, study_name)
-    print(f"Done. Data imported to {DUCKDB_FILE}")
+    
+    print(f"Done. Data imported to {DUCKDB_FILE} in {args.mode} mode")
 
 if __name__ == "__main__":
     main()
