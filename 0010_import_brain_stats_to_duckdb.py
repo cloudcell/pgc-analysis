@@ -4,6 +4,7 @@ from pathlib import Path
 import argparse
 from tensorboard.backend.event_processing import event_accumulator
 import base64
+from tqdm import tqdm
 
 
 # Set paths
@@ -134,14 +135,18 @@ def main():
     # Set up database based on mode
     setup_database(args.mode)
     
-    # Process event files
+    # Gather all event files
+    event_files = []
     for subdir in RUNS_DIR.iterdir():
         if not subdir.is_dir():
             continue
         study_name = subdir.name
         for event_file in subdir.glob('events.out.tfevents.*'):
-            print(f"Processing {event_file}")
-            process_event_file(event_file, study_name)
+            event_files.append((event_file, study_name))
+
+    # Show progress bar while processing event files
+    for event_file, study_name in tqdm(event_files, desc="Importing event files"):
+        process_event_file(event_file, study_name)
     
     print(f"Done. Data imported to {DUCKDB_FILE} in {args.mode} mode")
 

@@ -5,3 +5,5 @@ tensorboard
 Pillow
 matplotlib
 datetime
+numpy
+tqdm
