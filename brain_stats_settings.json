@@ -6,8 +6,8 @@
     "grid_color": "green",
     "line_color": "blue",
     "last_study": "674gs_pgc_fit.py_20250514_020146_784e_256c_3d_3s_8i",
-    "last_type": "scalar",
-    "last_tag": "Batch/Accuracy",
-    "window_geometry": "1610x977+28+30",
-    "pane_sash_position": 817
+    "last_type": "image",
+    "last_tag": "Brain/train/BlockUsageHeatmap",
+    "window_geometry": "1522x977+218+54",
+    "pane_sash_position": 839
 }
