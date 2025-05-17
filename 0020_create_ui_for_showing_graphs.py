@@ -13,12 +13,16 @@ import os
 import datetime
 import numpy as np
 
+
+# replace the string "Brain" with "PGC" in the tag when displayed on the graphs/charts
+
+
 DB_PATH = 'brain_stats.duckdb'
 
 class BrainStatsUI:
     def __init__(self, root):
         self.root = root
-        self.root.title('Brain Stats Viewer')
+        self.root.title('PGC Stats Viewer')
         try:
             icon_img = tk.PhotoImage(file='assets/CLOUDCELL-32x32-0.png')
             self.root.iconphoto(True, icon_img)
@@ -240,12 +244,21 @@ class BrainStatsUI:
         else:
             tags = [row[0] for row in self.con.execute("SELECT DISTINCT tag FROM images WHERE study=?", [study]).fetchall()]
         tags = sorted(tags)
-        self.tag_cb['values'] = tags
+        
+        # Store original tags but display formatted tags
+        self.original_tags = tags
+        display_tags = [self.format_tag_for_display(tag) for tag in tags]
+        
+        # Set the combobox values to the display tags
+        self.tag_cb['values'] = display_tags
         
         # Update the tag listbox for multi-selection
         self.tag_listbox.delete(0, tk.END)  # Clear existing items
-        for tag in tags:
-            self.tag_listbox.insert(tk.END, tag)
+        for display_tag in display_tags:
+            self.tag_listbox.insert(tk.END, display_tag)
+            
+        # Create mapping from display tag to original tag
+        self.display_to_original = {display_tags[i]: tags[i] for i in range(len(tags))}
         
         if tags:
             # Try to restore saved tag if available
@@ -447,6 +460,12 @@ class BrainStatsUI:
             result = result.replace(char, '_')
             
         return result
+        
+    def format_tag_for_display(self, tag):
+        """Replace 'Brain' with 'PGC' in tag names for display"""
+        if tag:
+            return tag.replace("Brain", "PGC")
+        return tag
     
     def on_tag_listbox_select(self, event):
         """Handle tag listbox selection changes"""
@@ -473,7 +492,12 @@ class BrainStatsUI:
         if not selected_indices:
             return
             
-        selected_tags = [self.tag_listbox.get(i) for i in selected_indices]
+        # Get display tags from listbox
+        selected_display_tags = [self.tag_listbox.get(i) for i in selected_indices]
+        
+        # Convert display tags to original tags for database queries
+        selected_original_tags = [self.display_to_original.get(display_tag, display_tag) 
+                                for display_tag in selected_display_tags]
         
         # Create plot
         fig, ax = plt.subplots(figsize=(6,4))
@@ -509,9 +533,11 @@ class BrainStatsUI:
         base_color_idx = self.color_palette.index(self.line_color_var.get()) if self.line_color_var.get() in self.color_palette else 0
         
         # Plot each selected tag
-        for i, tag in enumerate(selected_tags):
+        for i, tag_pair in enumerate(zip(selected_display_tags, selected_original_tags)):
+            display_tag, original_tag = tag_pair
+            
             # Get data for this tag
-            rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, tag]).fetchall()
+            rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, original_tag]).fetchall()
             if not rows:
                 continue
                 
@@ -522,9 +548,9 @@ class BrainStatsUI:
             # Plot the data
             steps, values = zip(*rows)
             if self.show_dots_var.get():
-                ax.plot(steps, values, marker='o', color=line_color, label=tag)
+                ax.plot(steps, values, marker='o', color=line_color, label=display_tag)
             else:
-                ax.plot(steps, values, color=line_color, label=tag)
+                ax.plot(steps, values, color=line_color, label=display_tag)
         
         # Set title and labels
         ax.set_title(f"Multiple Tags ({study})")
@@ -565,21 +591,24 @@ class BrainStatsUI:
             self.scalar_canvas.get_tk_widget().pack_forget()
         
         study = self.study_var.get()
-        tag = self.tag_var.get()
-        if not study or not tag:
+        display_tag = self.tag_var.get()
+        if not study or not display_tag:
             return
             
-        rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, tag]).fetchall()
+        # Convert display tag back to original tag for database query
+        original_tag = self.display_to_original.get(display_tag, display_tag)
+        
+        rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, original_tag]).fetchall()
         if not rows:
             return
         steps, values = zip(*rows)
         fig, ax = plt.subplots(figsize=(6,4))
         line_color = self.line_color_var.get()
         if self.show_dots_var.get():
-            ax.plot(steps, values, marker='o', color=line_color, label=tag)
+            ax.plot(steps, values, marker='o', color=line_color, label=display_tag)
         else:
-            ax.plot(steps, values, color=line_color, label=tag)
-        ax.set_title(f"{tag} ({study})")
+            ax.plot(steps, values, color=line_color, label=display_tag)
+        ax.set_title(f"{display_tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
         # First set scale, which affects grid behavior
@@ -626,7 +655,7 @@ class BrainStatsUI:
         
         # Store the figure for saving
         self.current_figure = fig
-        self.current_tag = tag
+        self.current_tag = display_tag
         self.current_study = study
         
         # Add right-click menu for saving
@@ -635,9 +664,13 @@ class BrainStatsUI:
 
     def load_images(self):
         study = self.study_var.get()
-        tag = self.tag_var.get()
+        display_tag = self.tag_var.get()
+        
+        # Convert display tag back to original tag for database query
+        original_tag = self.display_to_original.get(display_tag, display_tag)
+        
         self.images = self.con.execute(
-            "SELECT step, wall_time, image_format, image_data FROM images WHERE study=? AND tag=? ORDER BY step", [study, tag]
+            "SELECT step, wall_time, image_format, image_data FROM images WHERE study=? AND tag=? ORDER BY step", [study, original_tag]
         ).fetchall()
         self.img_idx = 0
 

@@ -5,6 +5,7 @@ import argparse
 from tensorboard.backend.event_processing import event_accumulator
 import base64
 
+
 # Set paths
 RUNS_DIR = Path(__file__).parent.parent / 'pgc' / 'runs'
 DUCKDB_FILE = Path(__file__).parent / 'brain_stats.duckdb'
