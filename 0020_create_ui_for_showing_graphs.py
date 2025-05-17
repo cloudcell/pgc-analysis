@@ -11,6 +11,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
 import os
 import datetime
+import numpy as np
 
 DB_PATH = 'brain_stats.duckdb'
 
@@ -29,6 +30,10 @@ class BrainStatsUI:
         self._icon_img = icon_img if 'icon_img' in locals() else None  # Prevent garbage collection
         self.con = duckdb.connect(DB_PATH, read_only=True)
         self.settings_file = 'brain_stats_settings.json'
+        
+        # Define color palette for multiple lines
+        self.color_palette = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        
         self.setup_widgets()
         self.load_settings()
         self.load_studies()
@@ -112,9 +117,41 @@ class BrainStatsUI:
         # Paned window for resizable split
         self.paned = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
         self.paned.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        # Top pane: plot area
-        self.plot_frame = ttk.Frame(self.paned)
-        self.paned.add(self.plot_frame, weight=3)
+        
+        # Top pane: plot area with tag list on left
+        self.plot_pane = ttk.PanedWindow(self.paned, orient=tk.HORIZONTAL)
+        self.paned.add(self.plot_pane, weight=3)
+        
+        # Left side: tag list for multi-selection
+        self.tag_list_frame = ttk.Frame(self.plot_pane)
+        self.plot_pane.add(self.tag_list_frame, weight=1)
+        
+        # Create a frame for the tag list with consistent packing
+        tag_list_container = ttk.Frame(self.tag_list_frame)
+        tag_list_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Tag list label
+        ttk.Label(tag_list_container, text="Available Tags:").pack(side=tk.TOP, anchor=tk.W, pady=5)
+        
+        # Tag listbox with scrollbar in a frame
+        listbox_frame = ttk.Frame(tag_list_container)
+        listbox_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.tag_listbox = tk.Listbox(listbox_frame, selectmode=tk.MULTIPLE, exportselection=0)
+        self.tag_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.tag_listbox.bind('<<ListboxSelect>>', self.on_tag_listbox_select)
+        
+        tag_scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=self.tag_listbox.yview)
+        tag_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tag_listbox.config(yscrollcommand=tag_scrollbar.set)
+        
+        # Plot button
+        self.plot_button = ttk.Button(tag_list_container, text="Plot Selected", command=self.plot_selected_tags)
+        self.plot_button.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+        
+        # Right side: plot area
+        self.plot_frame = ttk.Frame(self.plot_pane)
+        self.plot_pane.add(self.plot_frame, weight=3)
         self.plot_frame.pack_propagate(False)
         # Bottom pane: image area
         self.image_frame = ttk.Frame(self.paned)
@@ -204,6 +241,11 @@ class BrainStatsUI:
             tags = [row[0] for row in self.con.execute("SELECT DISTINCT tag FROM images WHERE study=?", [study]).fetchall()]
         tags = sorted(tags)
         self.tag_cb['values'] = tags
+        
+        # Update the tag listbox for multi-selection
+        self.tag_listbox.delete(0, tk.END)  # Clear existing items
+        for tag in tags:
+            self.tag_listbox.insert(tk.END, tag)
         
         if tags:
             # Try to restore saved tag if available
@@ -406,6 +448,107 @@ class BrainStatsUI:
             
         return result
     
+    def on_tag_listbox_select(self, event):
+        """Handle tag listbox selection changes"""
+        # This just tracks selections, actual plotting happens when the Plot button is clicked
+        selected_indices = self.tag_listbox.curselection()
+        if selected_indices and self.type_var.get() == 'scalar':
+            self.plot_button.config(state=tk.NORMAL)
+        else:
+            self.plot_button.config(state=tk.DISABLED)
+    
+    def plot_selected_tags(self):
+        """Plot all selected tags from the listbox"""
+        self.hide_image_widgets()
+        # Remove previous matplotlib canvas if present
+        if hasattr(self, 'scalar_canvas'):
+            self.scalar_canvas.get_tk_widget().pack_forget()
+        
+        study = self.study_var.get()
+        if not study:
+            return
+            
+        # Get selected tags
+        selected_indices = self.tag_listbox.curselection()
+        if not selected_indices:
+            return
+            
+        selected_tags = [self.tag_listbox.get(i) for i in selected_indices]
+        
+        # Create plot
+        fig, ax = plt.subplots(figsize=(6,4))
+        
+        # Set up scale first
+        if getattr(self, 'log_scale_var', None) and self.log_scale_var.get():
+            ax.set_yscale('log')
+            ax.yaxis.set_minor_locator(LogLocator(subs=range(2, 10)))
+        else:
+            ax.yaxis.set_minor_locator(AutoMinorLocator(4))
+            
+        # Add minor x-axis ticks for denser grid
+        ax.xaxis.set_minor_locator(AutoMinorLocator(4))
+        
+        # Apply grid settings
+        grid_color = self.grid_color_var.get()
+        
+        # Horizontal grid
+        if getattr(self, 'hgrid_var', None) and self.hgrid_var.get():
+            ax.yaxis.grid(True, which='major', linestyle='-', alpha=0.5, color=grid_color)
+            ax.yaxis.grid(True, which='minor', linestyle=':', alpha=0.3, color=grid_color)
+        else:
+            ax.yaxis.grid(False)
+        
+        # Vertical grid
+        if getattr(self, 'vgrid_var', None) and self.vgrid_var.get():
+            ax.xaxis.grid(True, which='major', linestyle='-', alpha=0.5, color=grid_color)
+            ax.xaxis.grid(True, which='minor', linestyle=':', alpha=0.3, color=grid_color)
+        else:
+            ax.xaxis.grid(False)
+        
+        # Get base color
+        base_color_idx = self.color_palette.index(self.line_color_var.get()) if self.line_color_var.get() in self.color_palette else 0
+        
+        # Plot each selected tag
+        for i, tag in enumerate(selected_tags):
+            # Get data for this tag
+            rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, tag]).fetchall()
+            if not rows:
+                continue
+                
+            # Get color for this line (cycling through palette)
+            color_idx = (base_color_idx + i) % len(self.color_palette)
+            line_color = self.color_palette[color_idx]
+            
+            # Plot the data
+            steps, values = zip(*rows)
+            if self.show_dots_var.get():
+                ax.plot(steps, values, marker='o', color=line_color, label=tag)
+            else:
+                ax.plot(steps, values, color=line_color, label=tag)
+        
+        # Set title and labels
+        ax.set_title(f"Multiple Tags ({study})")
+        ax.set_xlabel("Step")
+        ax.set_ylabel("Value")
+        
+        # Add legend
+        ax.legend()
+        
+        fig.tight_layout()
+        self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
+        self.scalar_canvas.draw()
+        canvas_widget = self.scalar_canvas.get_tk_widget()
+        canvas_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # Store the figure for saving
+        self.current_figure = fig
+        self.current_tag = "multiple_tags"
+        self.current_study = study
+        
+        # Add right-click menu for saving
+        canvas_widget.bind("<Button-3>", self.show_plot_context_menu)
+        plt.close(fig)
+    
     def on_close(self):
         """Save settings when closing the app"""
         # Cancel any pending save
@@ -418,24 +561,24 @@ class BrainStatsUI:
     def show_scalar_plot(self):
         self.hide_image_widgets()
         # Remove previous matplotlib canvas if present
-        if hasattr(self, 'scalar_canvas') and self.scalar_canvas is not None:
-            self.scalar_canvas.get_tk_widget().destroy()
-            self.scalar_canvas = None
+        if hasattr(self, 'scalar_canvas'):
+            self.scalar_canvas.get_tk_widget().pack_forget()
+        
         study = self.study_var.get()
         tag = self.tag_var.get()
         if not study or not tag:
             return
+            
         rows = self.con.execute("SELECT step, value FROM scalars WHERE study=? AND tag=? ORDER BY step", [study, tag]).fetchall()
         if not rows:
-            messagebox.showinfo("No data", "No scalar data found.")
             return
         steps, values = zip(*rows)
         fig, ax = plt.subplots(figsize=(6,4))
         line_color = self.line_color_var.get()
         if self.show_dots_var.get():
-            ax.plot(steps, values, marker='o', color=line_color)
+            ax.plot(steps, values, marker='o', color=line_color, label=tag)
         else:
-            ax.plot(steps, values, color=line_color)
+            ax.plot(steps, values, color=line_color, label=tag)
         ax.set_title(f"{tag} ({study})")
         ax.set_xlabel("Step")
         ax.set_ylabel("Value")
@@ -471,6 +614,10 @@ class BrainStatsUI:
             ax.xaxis.grid(True, which='minor', linestyle=':', alpha=0.3, color=grid_color)
         else:
             ax.xaxis.grid(False)
+            
+        # Add legend if needed
+        ax.legend()
+            
         fig.tight_layout()
         self.scalar_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
         self.scalar_canvas.draw()
